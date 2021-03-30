@@ -1,0 +1,47 @@
+import socket
+import sqlite3
+
+ip_port = ('127.0.0.1', 9090)
+back_log = 5
+buffer_size = 1024*10
+
+db = sqlite3.connect('./sqlinj.s3db')
+dbcon = db.cursor()
+
+srv = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+
+srv.bind(ip_port)
+srv.listen(back_log)
+while 1:
+    con,address = srv.accept()
+    while 1:
+        try:
+            msg = con.recv(buffer_size)
+            if not msg:
+                print("recv fail,con close.");
+                con.close()
+                break
+            print('recv message:',msg.decode('utf-8'))
+
+            sql = msg.decode()
+            cursor = dbcon.execute(sql)
+            result=""
+            for row in cursor:
+                result += row[0]
+                result += ","
+                result += row[1]
+                result += ";"
+            con.send(result.encode())
+            print('send message:', result)
+
+        except Exception as e:
+            print(e);
+            con.close()
+            break
+
+srv.close()
+
+
+几行简单的代码就实现了一个几乎全功能的数据库后门，貌似这类脚本语言比较好实现这样的功能，如果是C语言的话，其访问数据库
+的语句都必须经过预编译固话在可执行文件里面，没办法通过发送sql给服务端实现远程执行sql的功能。
